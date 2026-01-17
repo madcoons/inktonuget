@@ -1,0 +1,20 @@
+# glibc-based build for Ubuntu, Debian, RHEL, Fedora, etc.
+FROM python:3.11-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    g++ \
+    patchelf \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir nuitka ordered-set
+
+WORKDIR /app
+COPY helloworld.py .
+
+RUN python -m nuitka \
+    --onefile \
+    --assume-yes-for-downloads \
+    helloworld.py
+
+CMD ["./helloworld.bin"]

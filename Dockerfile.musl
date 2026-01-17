@@ -1,0 +1,22 @@
+# musl-based build for Alpine and other musl systems
+FROM python:3.11-alpine
+
+RUN apk add --no-cache \
+    gcc \
+    g++ \
+    musl-dev \
+    patchelf \
+    zlib-dev \
+    libffi-dev
+
+RUN pip install --no-cache-dir nuitka ordered-set
+
+WORKDIR /app
+COPY helloworld.py .
+
+RUN python -m nuitka \
+    --onefile \
+    --assume-yes-for-downloads \
+    helloworld.py
+
+CMD ["./helloworld.bin"]
