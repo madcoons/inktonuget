@@ -10,7 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Clone Inkscape extensions repository (contains inkex and dxf_outlines.py)
 WORKDIR /src
-RUN git clone --depth 1 https://gitlab.com/inkscape/extensions.git
+RUN git clone https://gitlab.com/inkscape/extensions.git && \
+    cd extensions && \
+    git checkout 5e199c99880caa43412b53164a8ccb6baebe6c99
 
 # Install Python dependencies (from pyproject.toml)
 RUN pip install --no-cache-dir \
