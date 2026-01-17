@@ -1,7 +1,7 @@
-# glibc-based build for Ubuntu, Debian, RHEL, Fedora, etc.
-# Build with: docker build --platform linux/amd64 -f Dockerfile.glibc -o output .
-#         or: docker build --platform linux/arm64 -f Dockerfile.glibc -o output .
-ARG TARGETARCH=amd64
+# macOS build for x64 and arm64
+# Build with: docker build --platform linux/amd64 -f Dockerfile.osx -o output . (for x64 cross-compile)
+#         or: Run natively on macOS
+ARG TARGETARCH=arm64
 FROM python:3.11-slim
 
 ARG TARGETARCH
@@ -39,11 +39,11 @@ RUN PYTHONPATH=/src/extensions python -m nuitka \
 
 # Rename binary with RID suffix (x64 or arm64)
 RUN if [ "$TARGETARCH" = "amd64" ]; then \
-        mv dxf_outlines.bin dxf_outlines-linux-x64; \
+        mv dxf_outlines.bin dxf_outlines-osx-x64; \
     elif [ "$TARGETARCH" = "arm64" ]; then \
-        mv dxf_outlines.bin dxf_outlines-linux-arm64; \
+        mv dxf_outlines.bin dxf_outlines-osx-arm64; \
     fi
 
 # Export stage for extracting the binary
 FROM scratch AS export
-COPY --from=0 /src/extensions/dxf_outlines-linux-* /
+COPY --from=0 /src/extensions/dxf_outlines-osx-* /

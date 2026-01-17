@@ -1,5 +1,10 @@
 # musl-based build for Alpine and other musl systems
+# Build with: docker build --platform linux/amd64 -f Dockerfile.musl -o output .
+#         or: docker build --platform linux/arm64 -f Dockerfile.musl -o output .
+ARG TARGETARCH=amd64
 FROM python:3.11-alpine
+
+ARG TARGETARCH
 
 RUN apk add --no-cache \
     gcc \
@@ -34,4 +39,13 @@ RUN PYTHONPATH=/src/extensions python -m nuitka \
     --include-data-files=dxf14_footer.txt=dxf14_footer.txt \
     dxf_outlines.py
 
-CMD ["./dxf_outlines.bin"]
+# Rename binary with RID suffix (x64 or arm64)
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        mv dxf_outlines.bin dxf_outlines-linux-musl-x64; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        mv dxf_outlines.bin dxf_outlines-linux-musl-arm64; \
+    fi
+
+# Export stage for extracting the binary
+FROM scratch AS export
+COPY --from=0 /src/extensions/dxf_outlines-linux-musl-* /
