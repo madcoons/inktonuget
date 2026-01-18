@@ -1,5 +1,5 @@
 # Test Dockerfile for musl-based Linux (Alpine)
-ARG DOTNET_VERSION
+ARG DOTNET_VERSION=10.0
 FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION}-alpine
 
 ARG DOTNET_VERSION
@@ -18,7 +18,7 @@ COPY Directory.Packages.props ./
 WORKDIR /app/tests/SvgToDxf.Tests
 RUN dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj || true
 RUN dotnet nuget add source /app/nupkg --name local
-RUN dotnet add package SvgToDxf --source local
+RUN dotnet add package SvgToDxf --source local --framework $FRAMEWORK
 
 # Run tests
 RUN dotnet test --configuration Release --framework $FRAMEWORK

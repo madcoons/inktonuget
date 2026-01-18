@@ -262,30 +262,32 @@ jobs:
             .
 
   test-nuget-macos:
-    name: Test NuGet - macOS ${{ matrix.arch }}
+    name: Test NuGet - macOS ${{ matrix.arch }} ${{ matrix.framework }}
     needs: [package]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
+        arch:
+          - x64
+          - arm64
+        dotnet-version:
+          - "8.0"
+          - "9.0"
+          - "10.0"
         include:
           - arch: x64
-            rid: osx-x64
             runner: macos-15-intel
           - arch: arm64
-            rid: osx-arm64
             runner: macos-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET ${{ matrix.dotnet-version }}
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
-            10.0.x
+          dotnet-version: ${{ matrix.dotnet-version }}.x
 
       - name: Download NuGet package
         uses: actions/download-artifact@v4
@@ -295,20 +297,13 @@ jobs:
 
       - name: Replace project reference with NuGet package
         run: |
-          # Remove project reference and add package reference
           cd tests/SvgToDxf.Tests
-          dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj
-          dotnet nuget add source $PWD/../../nupkg --name local
-          dotnet add package SvgToDxf --source local
+          dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj || true
+          dotnet nuget add source $PWD/../../nupkg --name local || true
+          dotnet add package SvgToDxf --source local --framework net${{ matrix.dotnet-version }}
 
-      - name: Run tests (net8.0)
-        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net8.0
-
-      - name: Run tests (net9.0)
-        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net9.0
-
-      - name: Run tests (net10.0)
-        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net10.0
+      - name: Run tests
+        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net${{ matrix.dotnet-version }}
 
   release:
     name: Create GitHub Release
