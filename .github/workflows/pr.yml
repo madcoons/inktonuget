@@ -196,44 +196,46 @@ jobs:
 
       - name: Get version from csproj
         id: version
-        shell: bash
+        shell: pwsh
         run: |
-          VERSION=$(grep -oE '<Version>[^<]+' src/SvgToDxf/SvgToDxf.csproj | sed 's/<Version>//')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          $xml = [xml](Get-Content src/SvgToDxf/SvgToDxf.csproj)
+          $version = $xml.Project.PropertyGroup.Version
+          echo "version=$version" >> $env:GITHUB_OUTPUT
 
       - name: Clone Inkscape extensions
+        shell: pwsh
         run: |
-          git clone https://gitlab.com/inkscape/extensions.git ${{ runner.temp }}/inkscape-extensions
-          cd ${{ runner.temp }}/inkscape-extensions
+          git clone https://gitlab.com/inkscape/extensions.git ${{ runner.temp }}\inkscape-extensions
+          cd ${{ runner.temp }}\inkscape-extensions
           git checkout 5e199c99880caa43412b53164a8ccb6baebe6c99
 
       - name: Build native binary
-        shell: bash
+        shell: pwsh
         run: |
-          cd ${{ runner.temp }}/inkscape-extensions
-          PYTHONPATH=${{ runner.temp }}/inkscape-extensions python -m nuitka \
-            --onefile \
-            --onefile-tempdir-spec="{TEMP}/dxf_outlines-${{ steps.version.outputs.version }}" \
-            --assume-yes-for-downloads \
-            --include-package=inkex \
-            --include-data-files=dxf14_header.txt=dxf14_header.txt \
-            --include-data-files=dxf14_style.txt=dxf14_style.txt \
-            --include-data-files=dxf14_footer.txt=dxf14_footer.txt \
-            --output-filename=dxf_outlines-${{ matrix.rid }}.exe \
+          cd ${{ runner.temp }}\inkscape-extensions
+          $env:PYTHONPATH = "${{ runner.temp }}\inkscape-extensions"
+          python -m nuitka `
+            --onefile `
+            --onefile-tempdir-spec="{TEMP}/dxf_outlines-${{ steps.version.outputs.version }}" `
+            --assume-yes-for-downloads `
+            --include-package=inkex `
+            --include-data-files=dxf14_header.txt=dxf14_header.txt `
+            --include-data-files=dxf14_style.txt=dxf14_style.txt `
+            --include-data-files=dxf14_footer.txt=dxf14_footer.txt `
+            --output-filename=dxf_outlines-${{ matrix.rid }}.exe `
             dxf_outlines.py
 
       - name: Verify binary
-        shell: bash
+        shell: pwsh
         run: |
-          cd ${{ runner.temp }}/inkscape-extensions
-          ls -la dxf_outlines-${{ matrix.rid }}.exe
-          file dxf_outlines-${{ matrix.rid }}.exe
+          cd ${{ runner.temp }}\inkscape-extensions
+          Get-Item dxf_outlines-${{ matrix.rid }}.exe
 
       - name: Upload native binary
         uses: actions/upload-artifact@v4
         with:
           name: native-${{ matrix.rid }}
-          path: ${{ runner.temp }}/inkscape-extensions/dxf_outlines-${{ matrix.rid }}.exe
+          path: ${{ runner.temp }}\inkscape-extensions\dxf_outlines-${{ matrix.rid }}.exe
 
   package:
     name: Create NuGet Package
