@@ -69,8 +69,15 @@ internal static class RuntimeResolver
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            // Universal binary works on both x64 and arm64
-            return "osx";
+            var arch = RuntimeInformation.OSArchitecture switch
+            {
+                Architecture.X64 => "x64",
+                Architecture.Arm64 => "arm64",
+                _ => throw new PlatformNotSupportedException(
+                    $"Unsupported architecture: {RuntimeInformation.OSArchitecture}. " +
+                    "SvgToDxf supports x64 and arm64 architectures only.")
+            };
+            return $"osx-{arch}";
         }
         else
         {
