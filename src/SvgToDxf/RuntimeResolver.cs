@@ -19,7 +19,8 @@ internal static class RuntimeResolver
     public static string GetExecutableName()
     {
         var rid = GetCurrentRid();
-        return $"{ExecutableBaseName}-{rid}";
+        var extension = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? ".exe" : "";
+        return $"{ExecutableBaseName}-{rid}{extension}";
     }
 
     /// <summary>
@@ -89,10 +90,22 @@ internal static class RuntimeResolver
             };
             return $"osx-{arch}";
         }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            var arch = RuntimeInformation.OSArchitecture switch
+            {
+                Architecture.X64 => "x64",
+                Architecture.Arm64 => "arm64",
+                _ => throw new PlatformNotSupportedException(
+                    $"Unsupported architecture: {RuntimeInformation.OSArchitecture}. " +
+                    "SvgToDxf supports x64 and arm64 architectures only.")
+            };
+            return $"win-{arch}";
+        }
         else
         {
             throw new PlatformNotSupportedException(
-                $"SvgToDxf is only supported on Linux and macOS. Current OS: {RuntimeInformation.OSDescription}");
+                $"SvgToDxf is only supported on Linux, macOS, and Windows. Current OS: {RuntimeInformation.OSDescription}");
         }
     }
 

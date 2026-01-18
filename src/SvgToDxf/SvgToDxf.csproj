@@ -37,6 +37,8 @@
     <None Include="runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64" Pack="true" PackagePath="runtimes/linux-musl-arm64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64" Condition="Exists('runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64')" />
     <None Include="runtimes/osx-x64/native/dxf_outlines-osx-x64" Pack="true" PackagePath="runtimes/osx-x64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/osx-x64/native/dxf_outlines-osx-x64" Condition="Exists('runtimes/osx-x64/native/dxf_outlines-osx-x64')" />
     <None Include="runtimes/osx-arm64/native/dxf_outlines-osx-arm64" Pack="true" PackagePath="runtimes/osx-arm64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/osx-arm64/native/dxf_outlines-osx-arm64" Condition="Exists('runtimes/osx-arm64/native/dxf_outlines-osx-arm64')" />
+    <None Include="runtimes/win-x64/native/dxf_outlines-win-x64.exe" Pack="true" PackagePath="runtimes/win-x64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/win-x64/native/dxf_outlines-win-x64.exe" Condition="Exists('runtimes/win-x64/native/dxf_outlines-win-x64.exe')" />
+    <None Include="runtimes/win-arm64/native/dxf_outlines-win-arm64.exe" Pack="true" PackagePath="runtimes/win-arm64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/win-arm64/native/dxf_outlines-win-arm64.exe" Condition="Exists('runtimes/win-arm64/native/dxf_outlines-win-arm64.exe')" />
   </ItemGroup>
 
 </Project>

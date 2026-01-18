@@ -168,9 +168,76 @@ jobs:
           name: native-${{ matrix.rid }}
           path: /tmp/inkscape-extensions/dxf_outlines-${{ matrix.rid }}
 
+  build-native-windows:
+    name: Build Native - Windows ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            rid: win-x64
+            runner: windows-latest
+          - arch: arm64
+            rid: win-arm64
+            runner: windows-11-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install nuitka ordered-set lxml numpy tinycss2 cssselect pyparsing
+
+      - name: Get version from csproj
+        id: version
+        shell: bash
+        run: |
+          VERSION=$(grep -oE '<Version>[^<]+' src/SvgToDxf/SvgToDxf.csproj | sed 's/<Version>//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Clone Inkscape extensions
+        run: |
+          git clone https://gitlab.com/inkscape/extensions.git ${{ runner.temp }}/inkscape-extensions
+          cd ${{ runner.temp }}/inkscape-extensions
+          git checkout 5e199c99880caa43412b53164a8ccb6baebe6c99
+
+      - name: Build native binary
+        shell: bash
+        run: |
+          cd ${{ runner.temp }}/inkscape-extensions
+          PYTHONPATH=${{ runner.temp }}/inkscape-extensions python -m nuitka \
+            --onefile \
+            --onefile-tempdir-spec="{TEMP}/dxf_outlines-${{ steps.version.outputs.version }}" \
+            --assume-yes-for-downloads \
+            --include-package=inkex \
+            --include-data-files=dxf14_header.txt=dxf14_header.txt \
+            --include-data-files=dxf14_style.txt=dxf14_style.txt \
+            --include-data-files=dxf14_footer.txt=dxf14_footer.txt \
+            --output-filename=dxf_outlines-${{ matrix.rid }}.exe \
+            dxf_outlines.py
+
+      - name: Verify binary
+        shell: bash
+        run: |
+          cd ${{ runner.temp }}/inkscape-extensions
+          ls -la dxf_outlines-${{ matrix.rid }}.exe
+          file dxf_outlines-${{ matrix.rid }}.exe
+
+      - name: Upload native binary
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: ${{ runner.temp }}/inkscape-extensions/dxf_outlines-${{ matrix.rid }}.exe
+
   package:
     name: Create NuGet Package
-    needs: [build, build-native-linux, build-native-macos]
+    needs: [build, build-native-linux, build-native-macos, build-native-windows]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -198,6 +265,8 @@ jobs:
           mkdir -p src/SvgToDxf/runtimes/linux-musl-arm64/native
           mkdir -p src/SvgToDxf/runtimes/osx-x64/native
           mkdir -p src/SvgToDxf/runtimes/osx-arm64/native
+          mkdir -p src/SvgToDxf/runtimes/win-x64/native
+          mkdir -p src/SvgToDxf/runtimes/win-arm64/native
           
           cp natives/native-linux-x64/dxf_outlines-linux-x64 src/SvgToDxf/runtimes/linux-x64/native/
           cp natives/native-linux-arm64/dxf_outlines-linux-arm64 src/SvgToDxf/runtimes/linux-arm64/native/
@@ -205,6 +274,8 @@ jobs:
           cp natives/native-linux-musl-arm64/dxf_outlines-linux-musl-arm64 src/SvgToDxf/runtimes/linux-musl-arm64/native/
           cp natives/native-osx-x64/dxf_outlines-osx-x64 src/SvgToDxf/runtimes/osx-x64/native/
           cp natives/native-osx-arm64/dxf_outlines-osx-arm64 src/SvgToDxf/runtimes/osx-arm64/native/
+          cp natives/native-win-x64/dxf_outlines-win-x64.exe src/SvgToDxf/runtimes/win-x64/native/
+          cp natives/native-win-arm64/dxf_outlines-win-arm64.exe src/SvgToDxf/runtimes/win-arm64/native/
 
       - name: Build and Pack NuGet
         run: |
@@ -436,9 +507,114 @@ jobs:
       - name: Run self-contained tests
         run: ./publish/SvgToDxf.Tests
 
+  test-nuget-windows:
+    name: Test NuGet - Windows ${{ matrix.arch }} ${{ matrix.framework }}
+    needs: [package]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x64
+          - arm64
+        dotnet-version:
+          - "8.0"
+          - "9.0"
+          - "10.0"
+        include:
+          - arch: x64
+            runner: windows-latest
+          - arch: arm64
+            runner: windows-11-arm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}.x
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: ./nupkg
+
+      - name: Replace project reference with NuGet package
+        shell: bash
+        run: |
+          dotnet remove tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj reference src/SvgToDxf/SvgToDxf.csproj || true
+          dotnet nuget add source $PWD/nupkg --name local || true
+          dotnet add tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj package SvgToDxf --source local --no-restore
+          dotnet restore tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj -p:TargetFramework=net${{ matrix.dotnet-version }}
+
+      - name: Build tests
+        run: dotnet build tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj --configuration Release --no-restore -p:TargetFramework=net${{ matrix.dotnet-version }}
+
+      - name: Run tests
+        run: cd tests/SvgToDxf.Tests && dotnet test --configuration Release --no-restore --no-build -p:TargetFramework=net${{ matrix.dotnet-version }}
+
+  test-nuget-windows-publish:
+    name: Test NuGet Publish - Windows ${{ matrix.arch }} ${{ matrix.framework }}
+    needs: [package]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x64
+          - arm64
+        dotnet-version:
+          - "8.0"
+          - "9.0"
+          - "10.0"
+        include:
+          - arch: x64
+            runner: windows-latest
+            rid: win-x64
+          - arch: arm64
+            runner: windows-11-arm
+            rid: win-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}.x
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: ./nupkg
+
+      - name: Replace project reference with NuGet package
+        shell: bash
+        run: |
+          dotnet remove tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj reference src/SvgToDxf/SvgToDxf.csproj || true
+          dotnet nuget add source $PWD/nupkg --name local || true
+          dotnet add tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj package SvgToDxf --source local --no-restore
+          dotnet restore tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj -p:TargetFramework=net${{ matrix.dotnet-version }} -r ${{ matrix.rid }}
+
+      - name: Publish self-contained
+        run: |
+          dotnet publish tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj `
+            --configuration Release `
+            --no-restore `
+            -p:TargetFramework=net${{ matrix.dotnet-version }} `
+            -r ${{ matrix.rid }} `
+            --self-contained true `
+            -o ./publish
+
+      - name: Run self-contained tests
+        run: ./publish/SvgToDxf.Tests.exe
+
   release:
     name: Create GitHub Release
-    needs: [test-nuget-linux, test-nuget-linux-publish, test-nuget-macos, test-nuget-macos-publish]
+    needs: [test-nuget-linux, test-nuget-linux-publish, test-nuget-macos, test-nuget-macos-publish, test-nuget-windows, test-nuget-windows-publish]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:
