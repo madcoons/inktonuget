@@ -5,6 +5,7 @@ FROM python:3.11-alpine
 
 # Docker automatically sets TARGETARCH based on --platform
 ARG TARGETARCH
+ARG VERSION=1.0.0
 
 RUN apk add --no-cache \
     gcc \
@@ -29,9 +30,10 @@ RUN pip install --no-cache-dir \
 
 WORKDIR /src/extensions
 
-# Build dxf_outlines.py with Nuitka
+# Build dxf_outlines.py with Nuitka (onefile with temp cache for faster subsequent runs)
 RUN PYTHONPATH=/src/extensions python -m nuitka \
     --onefile \
+    --onefile-tempdir-spec="{TEMP}/dxf_outlines-${VERSION}" \
     --assume-yes-for-downloads \
     --include-package=inkex \
     --include-data-files=dxf14_header.txt=dxf14_header.txt \

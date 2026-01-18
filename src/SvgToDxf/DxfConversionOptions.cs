@@ -51,20 +51,19 @@ public sealed record DxfConversionOptions
     /// </summary>
     internal IEnumerable<string> ToArguments()
     {
-        if (UsePolyline)
-            yield return "--POLY";
+        yield return "--POLY";
+        yield return UsePolyline ? "true" : "false";
 
-        if (FlattenBeziers)
-            yield return "--FLATTENBEZ";
+        yield return "--FLATTENBEZ";
+        yield return FlattenBeziers ? "true" : "false";
 
-        if (RoboMaster)
-            yield return "--ROBO";
+        yield return "--ROBO";
+        yield return RoboMaster ? "true" : "false";
 
-        if (UnitFromDocument)
-        {
-            yield return "--unit_from_document";
-        }
-        else
+        yield return "--unit_from_document";
+        yield return UnitFromDocument ? "true" : "false";
+
+        if (!UnitFromDocument)
         {
             yield return "--units";
             yield return Units;

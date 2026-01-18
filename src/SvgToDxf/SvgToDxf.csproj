@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -13,7 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="CliWrap" />
+    <PackageReference Include="CliWrap" Version="3.10.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -22,12 +23,12 @@
 
   <!-- Native executables for each RID - only include if files exist -->
   <ItemGroup>
-    <None Include="runtimes/linux-x64/native/dxf_outlines-linux-x64" Pack="true" PackagePath="runtimes/linux-x64/native/" Condition="Exists('runtimes/linux-x64/native/dxf_outlines-linux-x64')" />
-    <None Include="runtimes/linux-arm64/native/dxf_outlines-linux-arm64" Pack="true" PackagePath="runtimes/linux-arm64/native/" Condition="Exists('runtimes/linux-arm64/native/dxf_outlines-linux-arm64')" />
-    <None Include="runtimes/linux-musl-x64/native/dxf_outlines-linux-musl-x64" Pack="true" PackagePath="runtimes/linux-musl-x64/native/" Condition="Exists('runtimes/linux-musl-x64/native/dxf_outlines-linux-musl-x64')" />
-    <None Include="runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64" Pack="true" PackagePath="runtimes/linux-musl-arm64/native/" Condition="Exists('runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64')" />
-    <None Include="runtimes/osx-x64/native/dxf_outlines-osx-x64" Pack="true" PackagePath="runtimes/osx-x64/native/" Condition="Exists('runtimes/osx-x64/native/dxf_outlines-osx-x64')" />
-    <None Include="runtimes/osx-arm64/native/dxf_outlines-osx-arm64" Pack="true" PackagePath="runtimes/osx-arm64/native/" Condition="Exists('runtimes/osx-arm64/native/dxf_outlines-osx-arm64')" />
+    <None Include="runtimes/linux-x64/native/dxf_outlines-linux-x64" Pack="true" PackagePath="runtimes/linux-x64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/linux-x64/native/dxf_outlines-linux-x64" Condition="Exists('runtimes/linux-x64/native/dxf_outlines-linux-x64')" />
+    <None Include="runtimes/linux-arm64/native/dxf_outlines-linux-arm64" Pack="true" PackagePath="runtimes/linux-arm64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/linux-arm64/native/dxf_outlines-linux-arm64" Condition="Exists('runtimes/linux-arm64/native/dxf_outlines-linux-arm64')" />
+    <None Include="runtimes/linux-musl-x64/native/dxf_outlines-linux-musl-x64" Pack="true" PackagePath="runtimes/linux-musl-x64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/linux-musl-x64/native/dxf_outlines-linux-musl-x64" Condition="Exists('runtimes/linux-musl-x64/native/dxf_outlines-linux-musl-x64')" />
+    <None Include="runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64" Pack="true" PackagePath="runtimes/linux-musl-arm64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64" Condition="Exists('runtimes/linux-musl-arm64/native/dxf_outlines-linux-musl-arm64')" />
+    <None Include="runtimes/osx-x64/native/dxf_outlines-osx-x64" Pack="true" PackagePath="runtimes/osx-x64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/osx-x64/native/dxf_outlines-osx-x64" Condition="Exists('runtimes/osx-x64/native/dxf_outlines-osx-x64')" />
+    <None Include="runtimes/osx-arm64/native/dxf_outlines-osx-arm64" Pack="true" PackagePath="runtimes/osx-arm64/native/" CopyToOutputDirectory="PreserveNewest" Link="runtimes/osx-arm64/native/dxf_outlines-osx-arm64" Condition="Exists('runtimes/osx-arm64/native/dxf_outlines-osx-arm64')" />
   </ItemGroup>
 
 </Project>

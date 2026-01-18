@@ -66,6 +66,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Get version from csproj
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/SvgToDxf/SvgToDxf.csproj)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -74,6 +80,7 @@ jobs:
           mkdir -p output
           docker build \
             --platform ${{ matrix.platform }} \
+            --build-arg VERSION=${{ steps.version.outputs.version }} \
             -f ${{ matrix.dockerfile }} \
             -o output \
             .
@@ -122,6 +129,12 @@ jobs:
         run: |
           pip install nuitka ordered-set lxml numpy tinycss2 cssselect pyparsing
 
+      - name: Get version from csproj
+        id: version
+        run: |
+          VERSION=$(grep -oP '(?<=<Version>)[^<]+' src/SvgToDxf/SvgToDxf.csproj || grep -oE '<Version>[^<]+' src/SvgToDxf/SvgToDxf.csproj | sed 's/<Version>//')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Clone Inkscape extensions
         run: |
           git clone https://gitlab.com/inkscape/extensions.git /tmp/inkscape-extensions
@@ -133,6 +146,7 @@ jobs:
           cd /tmp/inkscape-extensions
           PYTHONPATH=/tmp/inkscape-extensions python -m nuitka \
             --onefile \
+            --onefile-tempdir-spec="{TEMP}/dxf_outlines-${{ steps.version.outputs.version }}" \
             --assume-yes-for-downloads \
             --macos-target-arch=${{ matrix.nuitka-arch }} \
             --include-package=inkex \
@@ -300,10 +314,15 @@ jobs:
           cd tests/SvgToDxf.Tests
           dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj || true
           dotnet nuget add source $PWD/../../nupkg --name local || true
-          dotnet add package SvgToDxf --source local --framework net${{ matrix.dotnet-version }}
+          dotnet add package SvgToDxf --source local --no-restore
+          # Extract version and add to Directory.Packages.props, remove from csproj (CPM pattern)
+          VERSION=$(grep -oE 'Include="SvgToDxf" Version="[^"]+' SvgToDxf.Tests.csproj | sed 's/.*Version="//')
+          sed -i '' "s|</ItemGroup>|  <PackageVersion Include=\"SvgToDxf\" Version=\"$VERSION\" /></ItemGroup>|" ../../Directory.Packages.props
+          sed -i '' 's|<PackageReference Include="SvgToDxf" Version="[^"]*"|<PackageReference Include="SvgToDxf"|' SvgToDxf.Tests.csproj
+          dotnet restore -p:TargetFramework=net${{ matrix.dotnet-version }}
 
       - name: Run tests
-        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net${{ matrix.dotnet-version }}
+        run: dotnet test tests/SvgToDxf.Tests --configuration Release --no-restore -p:TargetFramework=net${{ matrix.dotnet-version }}
 
   release:
     name: Create GitHub Release

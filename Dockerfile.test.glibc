@@ -10,15 +10,18 @@ WORKDIR /app
 # Copy the NuGet package
 COPY nupkg/ ./nupkg/
 
-# Copy test project files
-COPY tests/SvgToDxf.Tests/ ./tests/SvgToDxf.Tests/
-COPY Directory.Packages.props ./
+# Copy project files
+COPY src/ ./src/
+COPY tests/ ./tests/
+COPY global.json ./global.json
 
 # Remove project reference and add NuGet package reference
-WORKDIR /app/tests/SvgToDxf.Tests
-RUN dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj || true
+RUN dotnet remove tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj reference src/SvgToDxf/SvgToDxf.csproj
 RUN dotnet nuget add source /app/nupkg --name local
-RUN dotnet add package SvgToDxf --source local --framework $FRAMEWORK
 
-# Run tests
-RUN dotnet test --configuration Release --framework $FRAMEWORK
+RUN dotnet add tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj package SvgToDxf --source local --no-restore
+RUN dotnet restore tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj -p:TargetFramework=$FRAMEWORK
+
+# Build and run tests
+RUN dotnet build tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj --configuration Release --no-restore -p:TargetFramework=$FRAMEWORK
+RUN dotnet test --project tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj --configuration Release --no-restore --no-build -p:TargetFramework=$FRAMEWORK

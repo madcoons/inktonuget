@@ -32,6 +32,7 @@ public class DxfConversionOptionsTests
 
         // Assert
         await Assert.That(args).Contains("--unit_from_document");
+        await Assert.That(args).Contains("true");
         await Assert.That(args).Contains("--encoding");
         await Assert.That(args).Contains("latin_1");
     }
@@ -47,6 +48,8 @@ public class DxfConversionOptionsTests
 
         // Assert
         await Assert.That(args).Contains("--POLY");
+        var polyIndex = args.IndexOf("--POLY");
+        await Assert.That(args[polyIndex + 1]).IsEqualTo("true");
     }
 
     [Test]
@@ -60,6 +63,8 @@ public class DxfConversionOptionsTests
 
         // Assert
         await Assert.That(args).Contains("--FLATTENBEZ");
+        var flattenIndex = args.IndexOf("--FLATTENBEZ");
+        await Assert.That(args[flattenIndex + 1]).IsEqualTo("true");
     }
 
     [Test]
@@ -73,6 +78,8 @@ public class DxfConversionOptionsTests
 
         // Assert
         await Assert.That(args).Contains("--ROBO");
+        var roboIndex = args.IndexOf("--ROBO");
+        await Assert.That(args[roboIndex + 1]).IsEqualTo("true");
     }
 
     [Test]
@@ -91,6 +98,7 @@ public class DxfConversionOptionsTests
         // Assert
         await Assert.That(args).Contains("--units");
         await Assert.That(args).Contains("mm");
-        await Assert.That(args).DoesNotContain("--unit_from_document");
+        await Assert.That(args).Contains("--unit_from_document");
+        await Assert.That(args).Contains("false");
     }
 }

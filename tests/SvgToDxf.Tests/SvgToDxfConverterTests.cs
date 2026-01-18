@@ -1,4 +1,6 @@
+using Microsoft.Extensions.Logging;
 using TUnit.Core;
+using TUnit.Core.Logging;
 using TUnit.Assertions;
 using TUnit.Assertions.Extensions;
 
@@ -6,6 +8,8 @@ namespace SvgToDxf.Tests;
 
 public class SvgToDxfConverterTests
 {
+    private static Microsoft.Extensions.Logging.ILogger CreateLogger() => new TUnitLoggerAdapter(TestContext.Current!.GetDefaultLogger());
+
     [Test]
     public async Task ConvertAsync_WithValidSvg_ReturnsDxfBytes()
     {
@@ -17,7 +21,7 @@ public class SvgToDxfConverterTests
             </svg>
             """;
         var svgBytes = System.Text.Encoding.UTF8.GetBytes(svgContent);
-        var converter = new SvgToDxfConverter();
+        var converter = new SvgToDxfConverter(CreateLogger());
 
         // Act
         var dxfBytes = await converter.ConvertAsync(svgBytes);
@@ -42,7 +46,7 @@ public class SvgToDxfConverterTests
             </svg>
             """;
         var svgBytes = System.Text.Encoding.UTF8.GetBytes(svgContent);
-        var converter = new SvgToDxfConverter();
+        var converter = new SvgToDxfConverter(CreateLogger());
         var options = new DxfConversionOptions
         {
             UsePolyline = true,
@@ -68,7 +72,7 @@ public class SvgToDxfConverterTests
             </svg>
             """;
         using var svgStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(svgContent));
-        var converter = new SvgToDxfConverter();
+        var converter = new SvgToDxfConverter(CreateLogger());
 
         // Act
         var dxfBytes = await converter.ConvertAsync(svgStream);
@@ -89,7 +93,7 @@ public class SvgToDxfConverterTests
             </svg>
             """;
         var svgBytes = System.Text.Encoding.UTF8.GetBytes(svgContent);
-        var converter = new SvgToDxfConverter();
+        var converter = new SvgToDxfConverter(CreateLogger());
         using var cts = new CancellationTokenSource();
         cts.Cancel();
 
@@ -102,10 +106,29 @@ public class SvgToDxfConverterTests
     public async Task ConvertAsync_WithNullBytes_ThrowsArgumentNullException()
     {
         // Arrange
-        var converter = new SvgToDxfConverter();
+        var converter = new SvgToDxfConverter(CreateLogger());
 
         // Act & Assert
         await Assert.That(async () => await converter.ConvertAsync((byte[])null!))
             .Throws<ArgumentNullException>();
+    }
+}
+
+/// <summary>
+/// Adapter to bridge TUnit's DefaultLogger to Microsoft.Extensions.Logging.ILogger.
+/// </summary>
+file class TUnitLoggerAdapter(DefaultLogger tunitLogger) : Microsoft.Extensions.Logging.ILogger
+{
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+    public bool IsEnabled(Microsoft.Extensions.Logging.LogLevel logLevel) => true;
+
+    public void Log<TState>(Microsoft.Extensions.Logging.LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+    {
+        var message = formatter(state, exception);
+        tunitLogger.LogInformation(message);
+        if (exception != null)
+        {
+            tunitLogger.LogInformation(exception.ToString());
+        }
     }
 }

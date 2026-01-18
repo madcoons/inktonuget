@@ -1,4 +1,6 @@
 using CliWrap;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace SvgToDxf;
 
@@ -8,6 +10,7 @@ namespace SvgToDxf;
 public sealed class SvgToDxfConverter
 {
     private readonly string _executablePath;
+    private readonly ILogger _logger;
 
     /// <summary>
     /// Creates a new instance of the SVG to DXF converter.
@@ -19,8 +22,23 @@ public sealed class SvgToDxfConverter
     /// Thrown when the native executable is not found.
     /// </exception>
     public SvgToDxfConverter()
+        : this(RuntimeResolver.GetExecutablePath(), NullLogger.Instance)
     {
-        _executablePath = RuntimeResolver.GetExecutablePath();
+    }
+
+    /// <summary>
+    /// Creates a new instance of the SVG to DXF converter with a logger.
+    /// </summary>
+    /// <param name="logger">The logger to use for logging conversion output.</param>
+    /// <exception cref="PlatformNotSupportedException">
+    /// Thrown when the current platform is not supported.
+    /// </exception>
+    /// <exception cref="FileNotFoundException">
+    /// Thrown when the native executable is not found.
+    /// </exception>
+    public SvgToDxfConverter(ILogger logger)
+        : this(RuntimeResolver.GetExecutablePath(), logger)
+    {
     }
 
     /// <summary>
@@ -31,6 +49,19 @@ public sealed class SvgToDxfConverter
     /// Thrown when the executable is not found at the specified path.
     /// </exception>
     public SvgToDxfConverter(string executablePath)
+        : this(executablePath, NullLogger.Instance)
+    {
+    }
+
+    /// <summary>
+    /// Creates a new instance of the SVG to DXF converter with a custom executable path and logger.
+    /// </summary>
+    /// <param name="executablePath">The full path to the dxf_outlines executable.</param>
+    /// <param name="logger">The logger to use for logging conversion output.</param>
+    /// <exception cref="FileNotFoundException">
+    /// Thrown when the executable is not found at the specified path.
+    /// </exception>
+    public SvgToDxfConverter(string executablePath, ILogger logger)
     {
         if (!File.Exists(executablePath))
         {
@@ -40,6 +71,7 @@ public sealed class SvgToDxfConverter
         }
 
         _executablePath = executablePath;
+        _logger = logger ?? NullLogger.Instance;
     }
 
     /// <summary>
@@ -75,22 +107,30 @@ public sealed class SvgToDxfConverter
         ArgumentNullException.ThrowIfNull(options);
 
         using var outputStream = new MemoryStream();
-        using var errorStream = new MemoryStream();
+        var stderrLines = new List<string>();
+
+        _logger.LogDebug("Starting DXF conversion with executable: {ExecutablePath}", _executablePath);
+        _logger.LogDebug("Conversion arguments: {Arguments}", string.Join(" ", options.ToArguments()));
 
         var command = Cli.Wrap(_executablePath)
             .WithArguments(options.ToArguments())
             .WithStandardInputPipe(PipeSource.FromBytes(svgBytes))
             .WithStandardOutputPipe(PipeTarget.ToStream(outputStream))
-            .WithStandardErrorPipe(PipeTarget.ToStream(errorStream))
+            .WithStandardErrorPipe(PipeTarget.ToDelegate(line =>
+            {
+                stderrLines.Add(line);
+                _logger.LogWarning("[dxf_outlines] {Line}", line);
+            }))
             .WithValidation(CommandResultValidation.None);
 
         var result = await command.ExecuteAsync(cancellationToken);
 
+        _logger.LogDebug("DXF conversion completed with exit code: {ExitCode}", result.ExitCode);
+
         if (result.ExitCode != 0)
         {
-            errorStream.Position = 0;
-            using var reader = new StreamReader(errorStream);
-            var errorMessage = await reader.ReadToEndAsync(cancellationToken);
+            var errorMessage = string.Join(Environment.NewLine, stderrLines);
+            _logger.LogError("DXF conversion failed with exit code {ExitCode}: {ErrorMessage}", result.ExitCode, errorMessage);
 
             throw new DxfConversionException(
                 $"DXF conversion failed with exit code {result.ExitCode}.",

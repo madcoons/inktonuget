@@ -35,17 +35,27 @@ internal static class RuntimeResolver
     public static string GetExecutablePath()
     {
         var executableName = GetExecutableName();
-        var path = Path.Combine(AppContext.BaseDirectory, executableName);
+        var rid = GetCurrentRid();
 
-        if (!File.Exists(path))
+        // Check flattened location first (dotnet publish scenario)
+        var flatPath = Path.Combine(AppContext.BaseDirectory, executableName);
+        if (File.Exists(flatPath))
         {
-            throw new FileNotFoundException(
-                $"Native executable '{executableName}' not found at '{path}'. " +
-                $"Ensure the SvgToDxf package includes the native binary for RID '{GetCurrentRid()}'.",
-                path);
+            return flatPath;
         }
 
-        return path;
+        // Check runtimes folder (dotnet build/run scenario)
+        var runtimesPath = Path.Combine(AppContext.BaseDirectory, "runtimes", rid, "native", executableName);
+        if (File.Exists(runtimesPath))
+        {
+            return runtimesPath;
+        }
+
+        throw new FileNotFoundException(
+            $"Native executable '{executableName}' not found. " +
+            $"Searched locations: '{flatPath}' and '{runtimesPath}'. " +
+            $"Ensure the SvgToDxf package includes the native binary for RID '{rid}'.",
+            executableName);
     }
 
     /// <summary>
