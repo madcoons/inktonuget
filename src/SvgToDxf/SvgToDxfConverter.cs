@@ -9,6 +9,8 @@ namespace SvgToDxf;
 /// </summary>
 public sealed class SvgToDxfConverter
 {
+    private static volatile bool s_isWarmedUp;
+
     private readonly string _executablePath;
     private readonly ILogger _logger;
 
@@ -106,6 +108,9 @@ public sealed class SvgToDxfConverter
         ArgumentNullException.ThrowIfNull(svgBytes);
         ArgumentNullException.ThrowIfNull(options);
 
+        // Ensure warmup is complete before first conversion (Nuitka onefile extraction)
+        await EnsureWarmedUpAsync(cancellationToken);
+
         using var outputStream = new MemoryStream();
         var stderrLines = new List<string>();
 
@@ -175,5 +180,59 @@ public sealed class SvgToDxfConverter
         using var memoryStream = new MemoryStream();
         await svgStream.CopyToAsync(memoryStream, cancellationToken);
         return await ConvertAsync(memoryStream.ToArray(), options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Ensures the native executable is warmed up (extracted from Nuitka onefile if needed).
+    /// Uses a file lock to prevent race conditions when multiple processes start simultaneously.
+    /// </summary>
+    private async Task EnsureWarmedUpAsync(CancellationToken cancellationToken)
+    {
+        if (s_isWarmedUp)
+            return;
+
+        _logger.LogDebug("Warming up native executable (first run extraction)...");
+
+        // Use a file lock for cross-process synchronization
+        var lockPath = Path.Combine(Path.GetTempPath(), "dxf_outlines.lock");
+        
+        // Retry loop to acquire file lock
+        FileStream? lockFile = null;
+        while (lockFile == null)
+        {
+            try
+            {
+                lockFile = new FileStream(
+                    lockPath,
+                    FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite,
+                    FileShare.None);
+            }
+            catch (IOException)
+            {
+                // Lock held by another process, wait and retry
+                await Task.Delay(100, cancellationToken);
+            }
+        }
+
+        try
+        {
+            if (s_isWarmedUp)
+                return;
+
+            // Run --help to trigger Nuitka onefile extraction without actual conversion
+            var result = await Cli.Wrap(_executablePath)
+                .WithArguments(["--help"])
+                .WithValidation(CommandResultValidation.None)
+                .ExecuteAsync(cancellationToken);
+
+            _logger.LogDebug("Warmup completed with exit code: {ExitCode}", result.ExitCode);
+
+            s_isWarmedUp = true;
+        }
+        finally
+        {
+            lockFile.Dispose();
+        }
     }
 }

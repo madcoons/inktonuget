@@ -24,4 +24,4 @@ RUN dotnet restore tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj -p:TargetFramework
 
 # Build and run tests
 RUN dotnet build tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj --configuration Release --no-restore -p:TargetFramework=$FRAMEWORK
-RUN dotnet test --project tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj --configuration Release --no-restore --no-build -p:TargetFramework=$FRAMEWORK
+RUN cd tests/SvgToDxf.Tests && dotnet test --configuration Release --no-restore --no-build -p:TargetFramework=$FRAMEWORK
