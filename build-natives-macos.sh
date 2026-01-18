@@ -1,5 +1,5 @@
 #!/bin/bash
-# Build macOS native binary for the current architecture
+# Build macOS universal native binary (works on both Intel and Apple Silicon)
 # Run this script on a macOS machine
 
 set -e
@@ -8,18 +8,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RUNTIMES_DIR="$SCRIPT_DIR/src/SvgToDxf/runtimes"
 TEMP_DIR="/tmp/inkscape-extensions"
 
-# Detect architecture
-ARCH=$(uname -m)
-if [ "$ARCH" = "x86_64" ]; then
-    RID="osx-x64"
-elif [ "$ARCH" = "arm64" ]; then
-    RID="osx-arm64"
-else
-    echo "Unsupported architecture: $ARCH"
-    exit 1
-fi
-
-echo "Building macOS native binary for $RID..."
+echo "Building macOS universal native binary..."
 echo "================================================"
 
 # Check for Python 3
@@ -41,11 +30,12 @@ fi
 cd "$TEMP_DIR"
 git checkout --quiet 5e199c99880caa43412b53164a8ccb6baebe6c99
 
-# Build with Nuitka
-echo "Building with Nuitka (this may take several minutes)..."
+# Build with Nuitka (universal binary for both x64 and arm64)
+echo "Building with Nuitka (universal binary - this may take several minutes)..."
 PYTHONPATH="$TEMP_DIR" python3 -m nuitka \
     --onefile \
     --assume-yes-for-downloads \
+    --macos-target-arch=universal \
     --include-package=inkex \
     --include-data-files=dxf14_header.txt=dxf14_header.txt \
     --include-data-files=dxf14_style.txt=dxf14_style.txt \
@@ -53,11 +43,15 @@ PYTHONPATH="$TEMP_DIR" python3 -m nuitka \
     dxf_outlines.py
 
 # Create output directory and copy binary
-mkdir -p "$RUNTIMES_DIR/$RID/native"
-cp dxf_outlines.bin "$RUNTIMES_DIR/$RID/native/dxf_outlines-$RID"
-chmod +x "$RUNTIMES_DIR/$RID/native/dxf_outlines-$RID"
+mkdir -p "$RUNTIMES_DIR/osx/native"
+cp dxf_outlines.bin "$RUNTIMES_DIR/osx/native/dxf_outlines-osx"
+chmod +x "$RUNTIMES_DIR/osx/native/dxf_outlines-osx"
 
 echo ""
 echo "================================================"
-echo "Successfully built: $RUNTIMES_DIR/$RID/native/dxf_outlines-$RID"
-ls -lh "$RUNTIMES_DIR/$RID/native/dxf_outlines-$RID"
+echo "Successfully built universal binary:"
+ls -lh "$RUNTIMES_DIR/osx/native/dxf_outlines-osx"
+echo ""
+echo "Verifying universal binary architectures:"
+file "$RUNTIMES_DIR/osx/native/dxf_outlines-osx"
+lipo -info "$RUNTIMES_DIR/osx/native/dxf_outlines-osx"

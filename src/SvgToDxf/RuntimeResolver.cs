@@ -53,32 +53,30 @@ internal static class RuntimeResolver
     /// </summary>
     private static string GetCurrentRid()
     {
-        string os;
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
+            var arch = RuntimeInformation.OSArchitecture switch
+            {
+                Architecture.X64 => "x64",
+                Architecture.Arm64 => "arm64",
+                _ => throw new PlatformNotSupportedException(
+                    $"Unsupported architecture: {RuntimeInformation.OSArchitecture}. " +
+                    "SvgToDxf supports x64 and arm64 architectures only.")
+            };
+
             var libc = IsMusl() ? "musl-" : "";
-            os = $"linux-{libc}";
+            return $"linux-{libc}{arch}";
         }
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            os = "osx-";
+            // Universal binary works on both x64 and arm64
+            return "osx";
         }
         else
         {
             throw new PlatformNotSupportedException(
                 $"SvgToDxf is only supported on Linux and macOS. Current OS: {RuntimeInformation.OSDescription}");
         }
-
-        var arch = RuntimeInformation.OSArchitecture switch
-        {
-            Architecture.X64 => "x64",
-            Architecture.Arm64 => "arm64",
-            _ => throw new PlatformNotSupportedException(
-                $"Unsupported architecture: {RuntimeInformation.OSArchitecture}. " +
-                "SvgToDxf supports x64 and arm64 architectures only.")
-        };
-
-        return $"{os}{arch}";
     }
 
     /// <summary>
