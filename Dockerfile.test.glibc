@@ -1,0 +1,24 @@
+# Test Dockerfile for glibc-based Linux (Ubuntu, Debian, etc.)
+ARG DOTNET_VERSION
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION}
+
+ARG DOTNET_VERSION
+ENV FRAMEWORK=net${DOTNET_VERSION}
+
+WORKDIR /app
+
+# Copy the NuGet package
+COPY nupkg/ ./nupkg/
+
+# Copy test project files
+COPY tests/SvgToDxf.Tests/ ./tests/SvgToDxf.Tests/
+COPY Directory.Packages.props ./
+
+# Remove project reference and add NuGet package reference
+WORKDIR /app/tests/SvgToDxf.Tests
+RUN dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj || true
+RUN dotnet nuget add source /app/nupkg --name local
+RUN dotnet add package SvgToDxf --source local
+
+# Run tests
+RUN dotnet test --configuration Release --framework $FRAMEWORK

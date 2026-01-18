@@ -31,14 +31,6 @@ jobs:
       - name: Build
         run: dotnet build --no-restore --configuration Release
 
-      - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-output
-          path: |
-            src/SvgToDxf/bin/Release/
-            tests/SvgToDxf.Tests/bin/Release/
-
   build-native-linux:
     name: Build Native - Linux ${{ matrix.libc }} ${{ matrix.arch }}
     runs-on: ${{ matrix.runner }}
@@ -153,8 +145,7 @@ jobs:
       - name: Verify binary
         run: |
           cd /tmp/inkscape-extensions
-          chmod +x dxf_outlines-${{ matrix.rid }}.bin
-          mv dxf_outlines-${{ matrix.rid }}.bin dxf_outlines-${{ matrix.rid }}
+          chmod +x dxf_outlines-${{ matrix.rid }}
           file dxf_outlines-${{ matrix.rid }}
 
       - name: Upload native binary
@@ -207,24 +198,33 @@ jobs:
           name: nuget-package
           path: ./nupkg/*.nupkg
 
-  test-nuget:
-    name: Test NuGet Package - ${{ matrix.os }}
+  test-nuget-linux:
+    name: Test NuGet - Linux ${{ matrix.libc }} ${{ matrix.arch }}
     needs: [package]
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         include:
-          - os: linux
+          - arch: x64
+            libc: glibc
             runner: ubuntu-latest
-          - os: macos
-            runner: macos-latest
+            platform: linux/amd64
+          - arch: arm64
+            libc: glibc
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+          - arch: x64
+            libc: musl
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            libc: musl
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
 
     steps:
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
+      - uses: actions/checkout@v4
 
       - name: Download NuGet package
         uses: actions/download-artifact@v4
@@ -232,67 +232,82 @@ jobs:
           name: nuget-package
           path: ./nupkg
 
-      - name: Create test project
+      - name: Run tests in Docker (net8.0)
         run: |
-          dotnet new console -n NuGetTest -o test-project
-          cd test-project
-          dotnet nuget add source ../nupkg --name local
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --build-arg DOTNET_VERSION=8.0 \
+            -f Dockerfile.test.${{ matrix.libc }} \
+            .
+
+      - name: Run tests in Docker (net9.0)
+        run: |
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --build-arg DOTNET_VERSION=9.0 \
+            -f Dockerfile.test.${{ matrix.libc }} \
+            .
+
+      - name: Run tests in Docker (net10.0)
+        run: |
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --build-arg DOTNET_VERSION=10.0 \
+            -f Dockerfile.test.${{ matrix.libc }} \
+            .
+
+  test-nuget-macos:
+    name: Test NuGet - macOS ${{ matrix.arch }}
+    needs: [package]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            rid: osx-x64
+            runner: macos-15-intel
+          - arch: arm64
+            rid: osx-arm64
+            runner: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: ./nupkg
+
+      - name: Replace project reference with NuGet package
+        run: |
+          # Remove project reference and add package reference
+          cd tests/SvgToDxf.Tests
+          dotnet remove reference ../../src/SvgToDxf/SvgToDxf.csproj
+          dotnet nuget add source $PWD/../../nupkg --name local
           dotnet add package SvgToDxf --source local
 
-      - name: Create test code
-        run: |
-          cat > test-project/Program.cs << 'EOF'
-          using SvgToDxf;
+      - name: Run tests (net8.0)
+        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net8.0
 
-          Console.WriteLine("Testing SvgToDxf NuGet package...");
+      - name: Run tests (net9.0)
+        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net9.0
 
-          var svg = """
-              <?xml version="1.0" encoding="UTF-8"?>
-              <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100">
-                  <rect x="10" y="10" width="80" height="80" fill="none" stroke="black"/>
-              </svg>
-              """;
-
-          var svgBytes = System.Text.Encoding.UTF8.GetBytes(svg);
-
-          try
-          {
-              var converter = new SvgToDxfConverter();
-              var dxfBytes = await converter.ConvertAsync(svgBytes);
-              
-              var dxfContent = System.Text.Encoding.UTF8.GetString(dxfBytes);
-              
-              if (dxfBytes.Length == 0)
-              {
-                  Console.WriteLine("ERROR: Empty DXF output");
-                  Environment.Exit(1);
-              }
-              
-              if (!dxfContent.Contains("SECTION") || !dxfContent.Contains("ENTITIES"))
-              {
-                  Console.WriteLine("ERROR: Invalid DXF content");
-                  Environment.Exit(1);
-              }
-              
-              Console.WriteLine($"SUCCESS: Generated {dxfBytes.Length} bytes of DXF data");
-              Console.WriteLine("DXF preview (first 500 chars):");
-              Console.WriteLine(dxfContent.Substring(0, Math.Min(500, dxfContent.Length)));
-          }
-          catch (Exception ex)
-          {
-              Console.WriteLine($"ERROR: {ex.Message}");
-              Environment.Exit(1);
-          }
-          EOF
-
-      - name: Run test
-        run: |
-          cd test-project
-          dotnet run
+      - name: Run tests (net10.0)
+        run: dotnet test tests/SvgToDxf.Tests --configuration Release --framework net10.0
 
   push:
     name: Push NuGet Package
-    needs: [test-nuget]
+    needs: [test-nuget-linux, test-nuget-macos]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
