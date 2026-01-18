@@ -1,9 +1,9 @@
 # glibc-based build for Ubuntu, Debian, RHEL, Fedora, etc.
 # Build with: docker build --platform linux/amd64 -f Dockerfile.glibc -o output .
 #         or: docker build --platform linux/arm64 -f Dockerfile.glibc -o output .
-ARG TARGETARCH=amd64
 FROM python:3.11-slim
 
+# Docker automatically sets TARGETARCH based on --platform
 ARG TARGETARCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

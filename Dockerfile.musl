@@ -1,9 +1,9 @@
 # musl-based build for Alpine and other musl systems
 # Build with: docker build --platform linux/amd64 -f Dockerfile.musl -o output .
 #         or: docker build --platform linux/arm64 -f Dockerfile.musl -o output .
-ARG TARGETARCH=amd64
 FROM python:3.11-alpine
 
+# Docker automatically sets TARGETARCH based on --platform
 ARG TARGETARCH
 
 RUN apk add --no-cache \
