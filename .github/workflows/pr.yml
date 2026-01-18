@@ -111,7 +111,7 @@ jobs:
           - arch: x64
             nuitka-arch: x86_64
             rid: osx-x64
-            runner: macos-latest
+            runner: macos-15-intel
           - arch: arm64
             nuitka-arch: arm64
             rid: osx-arm64
@@ -275,6 +275,64 @@ jobs:
             -f Dockerfile.test.${{ matrix.libc }} \
             .
 
+  test-nuget-linux-publish:
+    name: Test NuGet Publish - Linux ${{ matrix.libc }} ${{ matrix.arch }}
+    needs: [package]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            libc: glibc
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            libc: glibc
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+          - arch: x64
+            libc: musl
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            libc: musl
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: ./nupkg
+
+      - name: Run self-contained tests in Docker (net8.0)
+        run: |
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --build-arg DOTNET_VERSION=8.0 \
+            -f Dockerfile.test.${{ matrix.libc }}.publish \
+            .
+
+      - name: Run self-contained tests in Docker (net9.0)
+        run: |
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --build-arg DOTNET_VERSION=9.0 \
+            -f Dockerfile.test.${{ matrix.libc }}.publish \
+            .
+
+      - name: Run self-contained tests in Docker (net10.0)
+        run: |
+          docker build \
+            --platform ${{ matrix.platform }} \
+            --build-arg DOTNET_VERSION=10.0 \
+            -f Dockerfile.test.${{ matrix.libc }}.publish \
+            .
+
   test-nuget-macos:
     name: Test NuGet - macOS ${{ matrix.arch }} ${{ matrix.framework }}
     needs: [package]
@@ -322,9 +380,65 @@ jobs:
       - name: Run tests
         run: cd tests/SvgToDxf.Tests && dotnet test --configuration Release --no-restore --no-build -p:TargetFramework=net${{ matrix.dotnet-version }}
 
+  test-nuget-macos-publish:
+    name: Test NuGet Publish - macOS ${{ matrix.arch }} ${{ matrix.framework }}
+    needs: [package]
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        arch:
+          - x64
+          - arm64
+        dotnet-version:
+          - "8.0"
+          - "9.0"
+          - "10.0"
+        include:
+          - arch: x64
+            runner: macos-15-intel
+            rid: osx-x64
+          - arch: arm64
+            runner: macos-latest
+            rid: osx-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ matrix.dotnet-version }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet-version }}.x
+
+      - name: Download NuGet package
+        uses: actions/download-artifact@v4
+        with:
+          name: nuget-package
+          path: ./nupkg
+
+      - name: Replace project reference with NuGet package
+        run: |
+          dotnet remove tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj reference src/SvgToDxf/SvgToDxf.csproj || true
+          dotnet nuget add source $PWD/nupkg --name local || true
+          dotnet add tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj package SvgToDxf --source local --no-restore
+          dotnet restore tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj -p:TargetFramework=net${{ matrix.dotnet-version }} -r ${{ matrix.rid }}
+
+      - name: Publish self-contained
+        run: |
+          dotnet publish tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj \
+            --configuration Release \
+            --no-restore \
+            -p:TargetFramework=net${{ matrix.dotnet-version }} \
+            -r ${{ matrix.rid }} \
+            --self-contained true \
+            -o ./publish
+
+      - name: Run self-contained tests
+        run: ./publish/SvgToDxf.Tests
+
   release:
     name: Create GitHub Release
-    needs: [test-nuget-linux, test-nuget-macos]
+    needs: [test-nuget-linux, test-nuget-linux-publish, test-nuget-macos, test-nuget-macos-publish]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     outputs:

@@ -10,7 +10,15 @@
     <Authors>Miroljub</Authors>
     <Description>SVG to DXF converter using native Inkscape dxf_outlines extension</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <RepositoryUrl>https://github.com/madcoons/inktonuget</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/madcoons/inktonuget</PackageProjectUrl>
+    <PackageTags>svg;dxf;converter;inkscape;cad</PackageTags>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="/" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CliWrap" Version="3.10.0" />

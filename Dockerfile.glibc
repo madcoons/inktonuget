@@ -1,7 +1,8 @@
 # glibc-based build for Ubuntu, Debian, RHEL, Fedora, etc.
+# Uses Debian Bullseye (glibc 2.31) for maximum compatibility
 # Build with: docker build --platform linux/amd64 -f Dockerfile.glibc -o output .
 #         or: docker build --platform linux/arm64 -f Dockerfile.glibc -o output .
-FROM python:3.11-slim
+FROM python:3.11-slim-bullseye
 
 # Docker automatically sets TARGETARCH based on --platform
 ARG TARGETARCH

@@ -1,0 +1,46 @@
+# Test Dockerfile for glibc-based Linux (Ubuntu, Debian, etc.) - Self-contained publish
+ARG DOTNET_VERSION=10.0
+FROM mcr.microsoft.com/dotnet/sdk:${DOTNET_VERSION} AS build
+
+ARG DOTNET_VERSION
+ARG TARGETARCH
+ENV FRAMEWORK=net${DOTNET_VERSION}
+
+WORKDIR /app
+
+# Determine RID based on architecture
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+        echo "linux-x64" > /tmp/rid; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+        echo "linux-arm64" > /tmp/rid; \
+    fi
+
+# Copy the NuGet package
+COPY nupkg/ ./nupkg/
+
+# Copy project files
+COPY src/ ./src/
+COPY tests/ ./tests/
+COPY global.json ./global.json
+
+# Remove project reference and add NuGet package reference
+RUN dotnet remove tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj reference src/SvgToDxf/SvgToDxf.csproj
+RUN dotnet nuget add source /app/nupkg --name local
+
+RUN dotnet add tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj package SvgToDxf --source local --no-restore
+RUN RID=$(cat /tmp/rid) && dotnet restore tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj -p:TargetFramework=$FRAMEWORK -r $RID
+
+# Publish self-contained
+RUN RID=$(cat /tmp/rid) && dotnet publish tests/SvgToDxf.Tests/SvgToDxf.Tests.csproj \
+    --configuration Release \
+    --no-restore \
+    -p:TargetFramework=$FRAMEWORK \
+    -r $RID \
+    --self-contained true \
+    -o /app/publish
+
+# Run tests from runtime-deps image (no SDK, no runtime - just native deps)
+FROM mcr.microsoft.com/dotnet/runtime-deps:${DOTNET_VERSION} AS test
+WORKDIR /app
+COPY --from=build /app/publish .
+RUN ./SvgToDxf.Tests
