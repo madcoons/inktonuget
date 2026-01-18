@@ -8,7 +8,7 @@ A .NET library for converting SVG files to DXF format using native Inkscape `dxf
 ## Features
 
 - Convert SVG to DXF format
-- Cross-platform: Linux (glibc/musl), macOS (Intel/Apple Silicon)
+- Cross-platform: Linux (glibc/musl), macOS (Intel/Apple Silicon), Windows (x64/ARM64)
 - Self-contained native binaries - no Python or Inkscape installation required
 - Supports .NET 8.0, 9.0, and 10.0
 - Optional logging support via `Microsoft.Extensions.Logging`
@@ -85,6 +85,8 @@ byte[] dxfBytes = await converter.ConvertAsync(svgBytes, cts.Token);
 | Linux (musl/Alpine) | arm64 | linux-musl-arm64 |
 | macOS | Intel | osx-x64 |
 | macOS | Apple Silicon | osx-arm64 |
+| Windows | x64 | win-x64 |
+| Windows | ARM64 | win-arm64 |
 
 ## Error Handling
 

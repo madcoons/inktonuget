@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <PackageId>SvgToDxf</PackageId>
-    <Version>1.0.0</Version>
+    <Version>1.0.1</Version>
     <Authors>Miroljub</Authors>
     <Description>SVG to DXF converter using native Inkscape dxf_outlines extension</Description>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
