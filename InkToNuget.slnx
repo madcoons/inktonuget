@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/examples/">
+    <Project Path="examples/SvgToDxf.Example/SvgToDxf.Example.csproj" />
+  </Folder>
   <Folder Name="/src/">
     <Project Path="src/SvgToDxf/SvgToDxf.csproj" />
   </Folder>
